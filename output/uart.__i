@@ -1,0 +1,1 @@
+"source\driver\uart.c" OMF2 OPTIMIZE (8,SPEED) BROWSE INCDIR(.\include;.\source;.\source\device;.\source\driver;.\source\mcu_sdk) DEBUG PRINT(.\lst\uart.lst) TABS (2) OBJECT(.\output\uart.obj)

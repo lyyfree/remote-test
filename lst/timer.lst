@@ -1,0 +1,75 @@
+C51 COMPILER V9.60.7.0   TIMER                                                             11/14/2026 00:10:30 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE TIMER
+OBJECT MODULE PLACED IN .\output\timer.obj
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE source\driver\timer.c OMF2 OPTIMIZE(8,SPEED) BROWSE INCDIR(.\include;.\s
+                    -ource;.\source\device;.\source\driver;.\source\mcu_sdk) DEBUG PRINT(.\lst\timer.lst) TABS(2) OBJECT(.\output\timer.obj)
+
+line level    source
+
+   1          #include "timer.h"
+   2          void Timer0_Init(void)
+   3          {
+   4   1        TMOD = (TMOD&0xFC)|0x01;    //模式选择: 定时器0，模式1。
+   5   1          /*
+   6   1          
+   7   1          7 GATE1定时器1门控控制位，1有效。有效时定时器1由INT1控制开关
+   8   1          6 CT1
+   9   1              定时器1计数器/定时器选择位
+  10   1              0：定时器，时钟为系统时钟12分频
+  11   1              1：计数器，时钟为T1输入时钟
+  12   1          5-4 T1M1 [T1M1,T1M0]为定时器1模式选择位
+  13   1              00：模式0，TL1和TH1组成13位定时器/计数器
+  14   1              01：模式1，TL1和TH1组成16位定时器/计数器
+  15   1              10：模式2，TL1作为8位定时器/计数器，TH1作为自动重载寄存器
+  16   1              11：模式3，此模式会锁住TH1/TL1，等效于TR1=0
+  17   1          3 GATE0定时器0门控控制位，1有效。有效时定时器0由INT0控制开关
+  18   1          2 CT0
+  19   1              定时器0计数器/定时器选择位
+  20   1              0：定时器，时钟为系统时钟12分频
+  21   1              1：计数器，时钟为T0输入时钟
+  22   1          1-0 T0M1 [T0M1,T0M0]为定时器0模式选择位
+  23   1              00：模式0，TL0和TH0组成13位定时器/计数器
+  24   1              01：模式1，TL0和TH0组成16位定时器/计数器
+  25   1              10：模式2，TL0作为8位定时器/计数器，TH0作为自动重载寄存器
+  26   1              11：模式3，TL0和TH0作为两个完全独立的8位定时器/计数器
+  27   1          */
+  28   1        TH0 = TH_VAL0;            //高8位装初值
+  29   1        TL0 = TL_VAL0;            //低8位装初值
+  30   1        
+  31   1        TR0 = 0;                //定时器0使能  
+  32   1        ET0 = 1;                //定时器0中断使能
+  33   1      }
+  34          
+  35          
+  36          
+  37          void Timer1_Init(void)
+  38          {
+  39   1        TMOD = (TMOD&0xCF)|0x10;    
+  40   1        TH1 = TH_VAL1;            
+  41   1        TL1 = TL_VAL1;            
+  42   1        PT1 = 1;
+  43   1        TR1 = 1;                
+  44   1        ET1 = 1;                
+  45   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     40    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+C51 COMPILER V9.60.7.0   TIMER                                                             11/14/2026 00:10:30 PAGE 2   
+
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,36 @@
+C51 COMPILER V9.60.7.0   INT                                                               11/14/2026 00:10:30 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE INT
+OBJECT MODULE PLACED IN .\output\int.obj
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE source\driver\int.c OMF2 OPTIMIZE(8,SPEED) BROWSE INCDIR(.\include;.\sou
+                    -rce;.\source\device;.\source\driver;.\source\mcu_sdk) DEBUG PRINT(.\lst\int.lst) TABS(2) OBJECT(.\output\int.obj)
+
+line level    source
+
+   1          #include "int.h"
+   2          void INT4_Init(void)
+   3          {
+   4   1        LIN_CFG = INPUT;            
+   5   1        EP2CON = EPIE(1) | EPPL(2) | EPPSEL(P04_INDEX); 
+   6   1        PX4 = 1;
+   7   1        INT4EN = 1;           
+   8   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     14    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

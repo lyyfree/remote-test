@@ -1,0 +1,1 @@
+"source\mcu_sdk\mcu_api.c" OMF2 OPTIMIZE (8,SPEED) BROWSE INCDIR(.\include;.\source;.\source\device;.\source\driver;.\source\mcu_sdk) DEBUG PRINT(.\lst\mcu_api.lst) TABS (2) OBJECT(.\output\mcu_api.obj)

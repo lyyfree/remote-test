@@ -1,0 +1,42 @@
+{
+    "configurations": [
+        {
+            "name": "CA51F",
+            "includePath": [
+                "d:\\BaiduNetdiskDownload\\梁远奕aa\\香薰灯\\程序\\CA51F152S3A-A2-WIFI\\include",
+                "d:\\BaiduNetdiskDownload\\梁远奕aa\\香薰灯\\程序\\CA51F152S3A-A2-WIFI\\source",
+                "d:\\BaiduNetdiskDownload\\梁远奕aa\\香薰灯\\程序\\CA51F152S3A-A2-WIFI\\source\\device",
+                "d:\\BaiduNetdiskDownload\\梁远奕aa\\香薰灯\\程序\\CA51F152S3A-A2-WIFI\\source\\driver",
+                "d:\\BaiduNetdiskDownload\\梁远奕aa\\香薰灯\\程序\\CA51F152S3A-A2-WIFI\\source\\mcu_sdk",
+                "D:\\Keil_v5\\C51\\INC",
+                "d:\\BaiduNetdiskDownload\\梁远奕aa\\香薰灯\\程序\\CA51F152S3A-A2-WIFI\\lib"
+            ],
+            "defines": [
+                "__C51__",
+                "__VSCODE_C51__",
+                "reentrant=",
+                "compact=",
+                "small=",
+                "large=",
+                "data=",
+                "idata=",
+                "pdata=",
+                "bdata=",
+                "xdata=",
+                "code=",
+                "bit=char",
+                "sbit=char",
+                "sfr=char",
+                "sfr16=int",
+                "sfr32=int",
+                "interrupt=",
+                "using=",
+                "_at_=",
+                "_priority_=",
+                "_task_="
+            ],
+            "intelliSenseMode": "${default}"
+        }
+    ],
+    "version": 4
+}

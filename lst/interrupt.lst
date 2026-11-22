@@ -1,0 +1,79 @@
+C51 COMPILER V9.60.7.0   INTERRUPT                                                         11/14/2026 00:10:30 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE INTERRUPT
+OBJECT MODULE PLACED IN .\output\interrupt.obj
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE source\interrupt.c OMF2 OPTIMIZE(8,SPEED) BROWSE INCDIR(.\include;.\sour
+                    -ce;.\source\device;.\source\driver;.\source\mcu_sdk) DEBUG PRINT(.\lst\interrupt.lst) TABS(2) OBJECT(.\output\interrupt.
+                    -obj)
+
+line level    source
+
+   1          #ifndef _INTERRUPT_C_
+   2          #define _INTERRUPT_C_
+   3          
+   4          /*********************************************************************************************************
+             -************/
+   5          #include "headfile.h"
+   6          /*********************************************************************************************************
+             -************/
+   7          extern void external_int4_ISR(void);
+   8          extern void Timer1s_ISR(void);
+   9          extern void Timer10us_ISR(void);
+  10          void INT2_ISR (void) interrupt 4 
+  11          {
+  12   1      #ifdef UART1_EN
+  13   1        UART1_ISR();
+  14   1      #endif
+  15   1      }
+  16          
+  17          void INT4_ISR(void) interrupt 6 
+  18          {
+  19   1      #ifdef UART2_EN
+  20   1        UART2_ISR();
+  21   1      #endif
+  22   1        if(EPIF & 0x04)         
+  23   1        {
+  24   2          EPIF = 0x04;        
+  25   2          external_int4_ISR();
+  26   2          
+  27   2        }
+  28   1      }
+  29          
+  30          void TIMER0_ISR (void) interrupt 1  //每10us产生中断
+  31          {
+  32   1        TH0 = TH_VAL0;
+  33   1        TL0 = TL_VAL0;
+  34   1        Timer10us_ISR();
+  35   1      }
+  36          void TIMER1_ISR (void) interrupt 3  //每1ms产生中断
+  37          {
+  38   1        TH1 = TH_VAL1;
+  39   1        TL1 = TL_VAL1;
+  40   1        Timer1s_ISR();
+  41   1        led_indicator_task();
+  42   1        
+  43   1      }
+  44          /*********************************************************************************************************
+             -************/
+  45          #endif
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    274    ----
+   CONSTANT SIZE    =   ----    ----
+C51 COMPILER V9.60.7.0   INTERRUPT                                                         11/14/2026 00:10:30 PAGE 2   
+
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

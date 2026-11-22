@@ -1,0 +1,1 @@
+"source\driver\timer.c" OMF2 OPTIMIZE (8,SPEED) BROWSE INCDIR(.\include;.\source;.\source\device;.\source\driver;.\source\mcu_sdk) DEBUG PRINT(.\lst\timer.lst) TABS (2) OBJECT(.\output\timer.obj)

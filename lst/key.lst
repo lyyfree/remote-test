@@ -1,0 +1,219 @@
+C51 COMPILER V9.60.7.0   KEY                                                               11/14/2026 00:42:13 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE KEY
+OBJECT MODULE PLACED IN .\output\key.obj
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE source\driver\key.c OMF2 OPTIMIZE(8,SPEED) BROWSE INCDIR(.\include;.\sou
+                    -rce;.\source\device;.\source\driver;.\source\mcu_sdk) DEBUG PRINT(.\lst\key.lst) TABS(2) OBJECT(.\output\key.obj)
+
+line level    source
+
+   1          #include "key.h"
+   2          volatile key_t  g_key_kg = {    
+   3          KEY_IDLE,
+   4          0,
+   5          0,
+   6          0,
+   7          0
+   8          };
+   9          
+  10          volatile key_t  g_key_ld = {    
+  11          KEY_IDLE,
+  12          0,
+  13          0,
+  14          0,
+  15          0
+  16          };
+  17          
+  18          volatile key_t  g_key_tim = {    
+  19          KEY_IDLE,
+  20          0,
+  21          0,
+  22          0,
+  23          0
+  24          };
+  25          void key_init(void)
+  26          {
+  27   1          KEY_KG_CFG = INPUT | PU_EN;
+  28   1          KEY_LD_CFG = INPUT | PU_EN;
+  29   1          KEY_TIM_CFG = INPUT | PU_EN;
+  30   1      }
+  31          
+  32          void key_scan(key_t *key,u8 cur_level)
+  33          {
+  34   1          /* 1. 读取当前引脚电平（低有效：0=按下，1=松开） */
+  35   1      
+  36   1          switch (key->state)
+  37   1          {
+  38   2          /* ------------------- 空闲状态：等待按下 ------------------- */
+  39   2          case KEY_IDLE:
+  40   2              if (cur_level == 0)
+  41   2              { // 检测到低电平（疑似按下）
+  42   3                  key->state = KEY_PRESS_DEBOUNCE;
+  43   3                  key->debounce_cnt = 0; // 消抖计数器清零
+  44   3              }
+  45   2              break;
+  46   2      
+  47   2          /* ------------------- 按下消抖：过滤抖动 ------------------- */
+  48   2          case KEY_PRESS_DEBOUNCE:
+  49   2              if (cur_level == 0)
+  50   2              {
+  51   3                  key->debounce_cnt++;
+  52   3                  if (key->debounce_cnt >= 2)
+  53   3                  { // 连续10ms都是低电平=真按下
+  54   4                      key->state = KEY_PRESS_HOLD;
+C51 COMPILER V9.60.7.0   KEY                                                               11/14/2026 00:42:13 PAGE 2   
+
+  55   4                      key->hold_time_ms = 0; // 开始计时按下时长
+  56   4                  }
+  57   3              }
+  58   2              else
+  59   2              {
+  60   3                  // 10ms内变回高电平=抖动，回到空闲
+  61   3                  key->state = KEY_IDLE;
+  62   3              }
+  63   2              break;
+  64   2      
+  65   2          /* ------------------- 稳定按下：计时+判断长按 ------------------- */
+  66   2          case KEY_PRESS_HOLD:
+  67   2              if (cur_level == 0)
+  68   2              {
+  69   3                  key->hold_time_ms++; // 每1ms加1
+  70   3                  // 按下≥5s，触发长按（不用等松手，用户体验更好）
+  71   3                  if (key->hold_time_ms >= 200 && !key->long_press_flag)
+  72   3                  {
+  73   4                      key->long_press_flag = 1; // 置位长按标志
+  74   4                      key->state = KEY_LONG_TRIGGERED;
+  75   4                  }
+  76   3              }
+  77   2              else
+  78   2              {
+  79   3                  // 提前松开，进入松开消抖
+  80   3                  key->state = KEY_RELEASE_DEBOUNCE;
+  81   3                  key->debounce_cnt = 0;
+  82   3              }
+  83   2              break;
+  84   2      
+  85   2          /* ------------------- 长按已触发：等松手，防重复触发 ------------------- */
+  86   2          case KEY_LONG_TRIGGERED:
+  87   2              if (cur_level == 1)
+  88   2              {                          // 松开了
+  89   3                  key->state = KEY_IDLE; // 回到空闲，等待下一次按键
+  90   3              }
+  91   2              break;
+  92   2      
+  93   2          /* ------------------- 松开消抖：判断短按 ------------------- */
+  94   2          case KEY_RELEASE_DEBOUNCE:
+  95   2              if (cur_level == 1)
+  96   2              {
+  97   3                  key->debounce_cnt++;
+  98   3                  if (key->debounce_cnt >= 2)
+  99   3                  { // 连续10ms都是高电平=真松开
+ 100   4                      // 松开时，若未触发过长按，且按下时长在30ms~1000ms之间=短按
+ 101   4                      if (!key->long_press_flag &&
+ 102   4                          key->hold_time_ms >= 3 &&
+ 103   4                          key->hold_time_ms < 100)
+ 104   4                      {
+ 105   5                          key->short_press_flag = 1; // 置位短按标志
+ 106   5                      }
+ 107   4                      key->state = KEY_IDLE; // 回到空闲
+ 108   4                  }
+ 109   3              }
+ 110   2              else
+ 111   2              {
+ 112   3                  // 10ms内又变回低电平=抖动，回到稳定按下状态
+ 113   3                  key->state = KEY_PRESS_HOLD;
+ 114   3              }
+ 115   2              break;
+ 116   2          }
+C51 COMPILER V9.60.7.0   KEY                                                               11/14/2026 00:42:13 PAGE 3   
+
+ 117   1      }
+ 118          
+ 119          netmode_t g_netmode = NETMODE_SMART;
+ 120          
+ 121          void key_handler(void)
+ 122          {
+ 123   1          
+ 124   1          /* 处理短按：开关机模式 */
+ 125   1          if (g_key_kg.short_press_flag)
+ 126   1          {
+ 127   2              g_key_kg.short_press_flag = 0; // 消费标志，清零
+ 128   2              if(emLightState == emLightState_Off)
+ 129   2              {
+ 130   3                  emLightState = emLightState_On;
+ 131   3              }
+ 132   2              else
+ 133   2              {
+ 134   3                  emLightState = emLightState_Off;
+ 135   3              }
+ 136   2              SetCloseTime();
+ 137   2              all_data_update();
+ 138   2          }
+ 139   1          
+ 140   1          /* 处理长按：清网+重启模组 */
+ 141   1          if (g_key_kg.long_press_flag)
+ 142   1          {
+ 143   2              g_key_kg.long_press_flag = 0; // 消费标志，清零
+ 144   2              g_netmode = NETMODE_SMART;
+ 145   2              mcu_reset_wifi();  // 清配网 + 重启模组，自动进 Smart
+ 146   2          }
+ 147   1      
+ 148   1          /* 处理短按：亮度模式 */
+ 149   1          if (g_key_ld.short_press_flag)
+ 150   1          {
+ 151   2              g_key_ld.short_press_flag = 0; // 消费标志，清零
+ 152   2              
+ 153   2              if((duty_cycle_from_wifi + 30) > 100)
+ 154   2              {
+ 155   3                  duty_cycle_from_wifi = 10;
+ 156   3              }
+ 157   2              else
+ 158   2              {
+ 159   3                  duty_cycle_from_wifi += 30;
+ 160   3              }
+ 161   2              all_data_update();
+ 162   2          }
+ 163   1      
+ 164   1          /* 处理短按：定时模式 */
+ 165   1          if (g_key_tim.short_press_flag)
+ 166   1          {
+ 167   2              g_key_tim.short_press_flag = 0; // 消费标志，清零
+ 168   2              if(emTimeState == emTimeState_Off)
+ 169   2              {
+ 170   3                  emTimeState = emTimeState_On;
+ 171   3                  emTime = emTime_2H;
+ 172   3              }
+ 173   2              else
+ 174   2              {
+ 175   3                  emTime++;
+ 176   3                  if(emTime >= emTime_6H)
+ 177   3                  {
+ 178   4                      emTimeState = emTimeState_Off;
+C51 COMPILER V9.60.7.0   KEY                                                               11/14/2026 00:42:13 PAGE 4   
+
+ 179   4                      emTime = emTime_2H;
+ 180   4                  }
+ 181   3              }
+ 182   2              SetCloseTime();
+ 183   2              all_data_update();
+ 184   2          }
+ 185   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    546    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     28       4
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

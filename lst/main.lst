@@ -1,0 +1,571 @@
+C51 COMPILER V9.60.7.0   MAIN                                                              11/14/2026 00:42:13 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\output\main.obj
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE source\main.c OMF2 OPTIMIZE(8,SPEED) BROWSE INCDIR(.\include;.\source;.\
+                    -source\device;.\source\driver;.\source\mcu_sdk) DEBUG PRINT(.\lst\main.lst) TABS(2) OBJECT(.\output\main.obj)
+
+line level    source
+
+   1          #ifndef _MAIN_C_
+   2          #define _MAIN_C_
+   3          /*********************************************************************************************************
+             -************/
+   4          #include "headfile.h"
+   5          /*********************************************************************************************************
+             -************/
+   6          // typedef unsigned long u32;
+   7          // typedef unsigned int u16;
+   8          // typedef unsigned char u8;
+   9          #define ABS_DIFF(a, b) ((a) > (b) ? ((a) - (b)) : ((b) - (a)))
+  10          
+  11          
+  12          
+  13          
+  14          
+  15          
+  16          
+  17          
+  18          
+  19          #define DAY_SECONDS 86400   // 24小时秒数
+  20          // #define ONE_HOUS_SECONDS 10 // 小时秒数
+  21          #define ONE_HOUS_SECONDS 3600 // 小时秒数
+  22          
+  23          // 变量声明
+  24          volatile emLightStateTdf xdata emLightState = 0;
+  25          volatile emTimeTdf xdata emTime = 0;
+  26          volatile emTimeStateTdf xdata emTimeState = 0;
+  27          
+  28          // 变量声明(全局且需volatile)
+  29          volatile unsigned int xdata cycleCounter = 0; // 周期计数器
+  30          volatile unsigned int xdata period = 0;     // 初始周期值=10ms（10000 * 10us）
+  31          volatile bit counterRunning = 0;        // 计数器运行标志
+  32          volatile bit inPulsePhase = 0;          // 1ms脉冲阶段标志
+  33          volatile unsigned int xdata msPulseCounter = 0; // 1ms脉冲计数器
+  34          
+  35          volatile bit day_flag; // 记录过了一天
+  36          
+  37          volatile u32 xdata sys_time = 0; // 系统时间（秒）
+  38          volatile bit is_cycle = 0;     // 循环模式标志
+  39          u32 xdata turn_on_time = 0;    // 开灯时间戳
+  40          u32 xdata turn_off_time = 0;   // 关灯时间戳
+  41          
+  42          // 全局变量定义
+  43          volatile unsigned int  timerCount = 0; // 1ms定时器计数器
+  44          volatile unsigned char xdata edgeCount = 0; // 边沿计数
+  45          volatile bit detectionDone = 0;       // 检测完成标志
+  46          volatile float xdata max_delay_ms = 0;    // 结果存储变量
+  47          volatile u8 xdata hours = 0;
+  48          volatile unsigned int  Total_value = 0;
+  49          volatile u16 xdata ms_tick;
+  50          volatile u16 xdata duty_cycle_from_wifi = 100; // wifi传过来的百分比
+  51          volatile u16 xdata duty_cycle_in_mcu = 0;    // 对wifi传过来的百分比处理后的数据
+  52          
+C51 COMPILER V9.60.7.0   MAIN                                                              11/14/2026 00:42:13 PAGE 2   
+
+  53          // LIN引脚中断服务程序（INT1）
+  54          void LIN_Int()
+  55          {
+  56   1        // 当收集到4个边沿（3个完整周期）时进行计算
+  57   1        if (timerCount > 300)
+  58   1        {
+  59   2          char current_is_60Hz = 0;
+  60   2          char current_is_50Hz = 0;
+  61   2          static unsigned char detection_attempts = 0; // 检测尝试次数
+  62   2          static unsigned char valid_count_60Hz = 0;   // 符合60Hz的有效计数
+  63   2          static unsigned char valid_count_50Hz = 0;   // 符合
+  64   2                                 // 计算周期（取三个周期的值）
+  65   2          Total_value = timerCount;
+  66   2      
+  67   2          detection_attempts++;
+  68   2          // 检查当前检测值是否符合频率范围
+  69   2          current_is_60Hz = (Total_value >= 600 && Total_value < 800);
+  70   2          current_is_50Hz = (Total_value >= 800 && Total_value <= 1200);
+  71   2          // current_is_60Hz = (Total_value >= 600 && Total_value < 900);
+  72   2          // current_is_50Hz = (Total_value >= 900 && Total_value <= 1200);
+  73   2          duty_cycle_from_wifi = Total_value / 10;
+  74   2          if (current_is_60Hz)
+  75   2          {
+  76   3            valid_count_60Hz++;
+  77   3          }
+  78   2          else if (current_is_50Hz)
+  79   2          {
+  80   3            valid_count_50Hz++;
+  81   3          }
+  82   2          // 如果已经检测了3次
+  83   2          if (detection_attempts >= 3)
+  84   2          {
+  85   3            // 检查是否连续3次都符合同一个频率
+  86   3            if (valid_count_60Hz == 3)
+  87   3            {
+  88   4              // 3次都符合60Hz
+  89   4              max_delay_ms = 7.8f;
+  90   4              TR0 = 0;       // 关闭Timer0 10us
+  91   4              detectionDone = 1; // 标记检测完成
+  92   4            }
+  93   3            else if (valid_count_50Hz == 3)
+  94   3            {
+  95   4              // 3次都符合50Hz
+  96   4              max_delay_ms = 10.0f;
+  97   4              TR0 = 0;       // 关闭Timer0 10us
+  98   4              detectionDone = 1; // 标记检测完成
+  99   4            }
+ 100   3            else
+ 101   3            {
+ 102   4              // 检测失败，重置状态重新检测
+ 103   4              // 可以选择保留部分历史数据或者完全重置
+ 104   4              detection_attempts = 1; // 保留最近一次的数据
+ 105   4              valid_count_60Hz = (current_is_60Hz ? 1 : 0);
+ 106   4              valid_count_50Hz = (current_is_50Hz ? 1 : 0);
+ 107   4              timerCount = 0;
+ 108   4            }
+ 109   3          }
+ 110   2          else
+ 111   2          {
+ 112   3      
+ 113   3            timerCount = 0;
+ 114   3          }
+C51 COMPILER V9.60.7.0   MAIN                                                              11/14/2026 00:42:13 PAGE 3   
+
+ 115   2        }
+ 116   1      }
+ 117          // 启动周期计数器
+ 118          void StartCycleCounter(void)
+ 119          {
+ 120   1        counterRunning = 1;
+ 121   1        TH0 = TH_VAL0;    // 高8位装初值
+ 122   1        TL0 = TL_VAL0;    // 低8位装初值
+ 123   1        TR0 = 1;      // 使能Timer0 10us
+ 124   1        BT = BT_OFF; // 确保启动时输出为高
+ 125   1      }
+ 126          
+ 127          void Timer10us_ISR(void)
+ 128          {
+ 129   1        if (detectionDone == 0)
+ 130   1        {         // 检测频率
+ 131   2          timerCount++; // 全局计时器递增
+ 132   2          return;
+ 133   2        }
+ 134   1        // 1ms脉冲处理逻辑
+ 135   1        if (inPulsePhase)
+ 136   1        {
+ 137   2          if (--msPulseCounter == 0)
+ 138   2          {
+ 139   3            inPulsePhase = 0; // 结束脉冲阶段
+ 140   3            TR0 = 0;      // 关闭Timer0 10us
+ 141   3            BT = BT_OFF; // 恢复高电平
+ 142   3          }
+ 143   2        }
+ 144   1      
+ 145   1        // 周期计数器逻辑
+ 146   1        if (counterRunning)
+ 147   1        {
+ 148   2          if (++cycleCounter >= period + 10)
+ 149   2          {
+ 150   3            counterRunning = 0;
+ 151   3            cycleCounter = 0;
+ 152   3            inPulsePhase = 1;
+ 153   3            msPulseCounter = 59; // 100×10us = 1ms
+ 154   3            BT = BT_ON;    // 输出低电平
+ 155   3          }
+ 156   2        }
+ 157   1      }
+ 158          
+ 159          void external_int4_ISR(void)
+ 160          {
+ 161   1        if (detectionDone == 0)
+ 162   1        { // 检测频率
+ 163   2          if (edgeCount == 3)
+ 164   2          {
+ 165   3            TR0 = 1; // 使能Timer0 10us
+ 166   3            LIN_Int();
+ 167   3          }
+ 168   2          else
+ 169   2          {
+ 170   3            edgeCount++;
+ 171   3          }
+ 172   2        }
+ 173   1        else
+ 174   1        {
+ 175   2          if (emLightState == emLightState_On)
+ 176   2          {
+C51 COMPILER V9.60.7.0   MAIN                                                              11/14/2026 00:42:13 PAGE 4   
+
+ 177   3            // 达到90%全部拉低BT
+ 178   3            StartCycleCounter(); // 启动
+ 179   3          }
+ 180   2        }
+ 181   1      }
+ 182          
+ 183          void Timer1s_ISR(void)
+ 184          {
+ 185   1        ms_tick++;
+ 186   1        if(ms_tick % 10 == 0)
+ 187   1        {
+ 188   2          key_scan(&g_key_kg,KEY_KG);
+ 189   2          key_scan(&g_key_ld,KEY_LD);
+ 190   2          key_scan(&g_key_tim,KEY_TIM);
+ 191   2        }
+ 192   1        if (ms_tick >= 1000)
+ 193   1        {
+ 194   2          ms_tick = 0;
+ 195   2          // 系统时钟（每日归零）
+ 196   2          sys_time = (sys_time < DAY_SECONDS - 1) ? (sys_time + 1) : 0;
+ 197   2          if (!sys_time)
+ 198   2            day_flag = 1;
+ 199   2        }
+ 200   1      }
+ 201          
+ 202          void SetCloseTime(void)
+ 203          {
+ 204   1        if (emTimeState == emTimeState_On)
+ 205   1        {
+ 206   2          day_flag = 0;
+ 207   2          turn_on_time = sys_time; // 记录开灯时刻
+ 208   2          switch (emTime)
+ 209   2          {
+ 210   3          case emTime_2H:
+ 211   3            hours = 2;
+ 212   3            break;
+ 213   3          case emTime_4H:
+ 214   3            hours = 4;
+ 215   3            break;
+ 216   3          case emTime_6H:
+ 217   3            hours = 6;
+ 218   3            break;
+ 219   3          }
+ 220   2          turn_off_time = turn_on_time + (u16)hours * ONE_HOUS_SECONDS;
+ 221   2        }
+ 222   1      }
+ 223          
+ 224          /**
+ 225           * 查找表：功率(0.1W) → mcu_duty
+ 226           * 数据来源：你的实测结果，按功率从小到大排列
+ 227           * 注：mcu_duty越大，导通角越小，功率越低
+ 228           */
+ 229          typedef struct
+ 230          {
+ 231            u16 p_01w;   // 功率，单位0.1W（100=10.0W，450=45.0W）
+ 232            u8 mcu_duty; // MCU内部占空比（0~100，≤58时功率≥10W，稳定）
+ 233          } P2Duty_LUT_t;
+ 234          
+ 235          P2Duty_LUT_t xdata p2duty_lut[] = {
+ 236            {100, 60}, // 10.0W → 稳定下限，对应d_wifi=1时的目标功率
+ 237            {136, 55}, // 13.6W
+ 238            {171, 50}, // 17.1W
+C51 COMPILER V9.60.7.0   MAIN                                                              11/14/2026 00:42:13 PAGE 5   
+
+ 239            {230, 45}, // 23.0W
+ 240            {275, 40}, // 27.5W
+ 241            {308, 35}, // 30.8W
+ 242            {342, 30}, // 34.2W
+ 243            {376, 25}, // 37.6W
+ 244            {397, 20}, // 39.7W
+ 245            {410, 15}, // 41.0W
+ 246            {436, 10}, // 43.6W
+ 247            {480, 0},  // 48.0W → 目标上限，实测全通时为48W，此处对齐目标
+ 248          };
+ 249          #define LUT_SIZE (sizeof(p2duty_lut) / sizeof(p2duty_lut[0]))
+ 250          
+ 251          /**
+ 252           * @brief 根据WiFi占空比计算目标功率（线性映射）
+ 253           * @param d_wifi: 来自WiFi的占空比（1~100）
+ 254           * @return 目标功率，单位0.1W（100~480）
+ 255           */
+ 256          static u16 calc_target_power(u8 d_wifi)
+ 257          {
+ 258   1        u32 p_target_temp = 0;
+ 259   1        // 输入健壮性处理（无限制，仅防止极端值）
+ 260   1        if (d_wifi < 1)
+ 261   1          d_wifi = 1;
+ 262   1        if (d_wifi > 100)
+ 263   1          d_wifi = 100;
+ 264   1      
+ 265   1        // P_target = 10W + (48W-10W)*(d_wifi-1)/(100-1)
+ 266   1        // 放大10倍转整数运算：100 + 350*(d_wifi-1)/99
+ 267   1        p_target_temp = 100 + (380 * (d_wifi - 1)) / 99;
+ 268   1      
+ 269   1        // 硬件上限钳位：实测最大功率为48W，无法突破48W，此处对齐目标
+ 270   1        if (p_target_temp > 480)
+ 271   1          p_target_temp = 480;
+ 272   1      
+ 273   1        return (u16)p_target_temp;
+ 274   1      }
+ 275          
+ 276          /**
+ 277           * @brief 根据目标功率反查MCU占空比（基于实测数据插值）
+ 278           * @param target_p_01w: 目标功率，单位0.1W
+ 279           * @return MCU内部占空比（0~58，保证功率≥10W，稳定）
+ 280           */
+ 281          static u8 get_mcu_duty_by_power(u16 target_p_01w)
+ 282          {
+ 283   1        u8 i;
+ 284   1        u8 d_low, d_high;
+ 285   1        u16 p_low, p_high;
+ 286   1        u32 mcu_duty = 0;
+ 287   1        // 边界1：功率≤10W，返回最大稳定占空比58
+ 288   1        if (target_p_01w <= p2duty_lut[0].p_01w)
+ 289   1        {
+ 290   2          return p2duty_lut[0].mcu_duty;
+ 291   2        }
+ 292   1        // 边界2：功率≥48W，返回最小占空比0（全通）
+ 293   1        if (target_p_01w >= p2duty_lut[LUT_SIZE - 1].p_01w)
+ 294   1        {
+ 295   2          return p2duty_lut[LUT_SIZE - 1].mcu_duty;
+ 296   2        }
+ 297   1      
+ 298   1        // 查找功率所在的插值区间（按功率升序排列）
+ 299   1        for (i = 0; i < LUT_SIZE - 1; i++)
+ 300   1        {
+C51 COMPILER V9.60.7.0   MAIN                                                              11/14/2026 00:42:13 PAGE 6   
+
+ 301   2          if (target_p_01w >= p2duty_lut[i].p_01w &&
+ 302   2            target_p_01w <= p2duty_lut[i + 1].p_01w)
+ 303   2          {
+ 304   3            p_low = p2duty_lut[i].p_01w;
+ 305   3            p_high = p2duty_lut[i + 1].p_01w;
+ 306   3            d_low = p2duty_lut[i].mcu_duty;
+ 307   3            d_high = p2duty_lut[i + 1].mcu_duty;
+ 308   3            break;
+ 309   3          }
+ 310   2        }
+ 311   1      
+ 312   1        /**
+ 313   1         * 线性插值（功率↑ → mcu_duty↓，反向关系）
+ 314   1         * 公式：d = d_low - (target_p - p_low) * (d_low - d_high) / (p_high - p_low)
+ 315   1         * 例：target_p=167（16.7W），介于171(17.1W, d=50)和136(13.6W, d=55)之间
+ 316   1         * d=50 - (167-136)*(50-55)/(171-136) = 50 - 31*(-5)/35 ≈ 54.4
+ 317   1         */
+ 318   1        mcu_duty = d_low;
+ 319   1        if (p_high != p_low)
+ 320   1        { // 避免除零
+ 321   2          mcu_duty -= (u32)(target_p_01w - p_low) * (d_low - d_high) / (p_high - p_low);
+ 322   2        }
+ 323   1      
+ 324   1        // 最终钳位：最大占空比不超过60（保证功率≥10W，稳定）
+ 325   1        if (mcu_duty > p2duty_lut[0].mcu_duty)
+ 326   1        {
+ 327   2          mcu_duty = p2duty_lut[0].mcu_duty;
+ 328   2        }
+ 329   1        // 最小占空比不低于0
+ 330   1        if (mcu_duty > 100)
+ 331   1          mcu_duty = 100; // 溢出保护
+ 332   1      
+ 333   1        return (u8)mcu_duty;
+ 334   1      }
+ 335          
+ 336          volatile u32 xdata blink_cnt = 0;
+ 337          void led_indicator_task(void)
+ 338          {
+ 339   1        blink_cnt++;
+ 340   1        switch (emLightState)
+ 341   1        {
+ 342   2        case emLightState_Off:
+ 343   2          {
+ 344   3            LED_DY = LED_OFF;
+ 345   3            LED_2H = LED_OFF;
+ 346   3            LED_4H = LED_OFF;
+ 347   3            LED_6H = LED_OFF;
+ 348   3            break;
+ 349   3          }
+ 350   2        case emLightState_On:
+ 351   2          {
+ 352   3            LED_DY = LED_ON;
+ 353   3            if(emTimeState == emTimeState_Off)
+ 354   3            {
+ 355   4              LED_2H = LED_OFF;
+ 356   4              LED_4H = LED_OFF;
+ 357   4              LED_6H = LED_OFF;
+ 358   4            }
+ 359   3            else
+ 360   3            {
+ 361   4              switch (emTime)
+ 362   4              {
+C51 COMPILER V9.60.7.0   MAIN                                                              11/14/2026 00:42:13 PAGE 7   
+
+ 363   5      
+ 364   5                case emTime_2H:
+ 365   5                {
+ 366   6                  LED_2H = LED_ON;
+ 367   6                  LED_4H = LED_OFF;
+ 368   6                  LED_6H = LED_OFF;
+ 369   6                  break;
+ 370   6                }
+ 371   5                case emTime_4H:
+ 372   5                {
+ 373   6                  LED_2H = LED_OFF;
+ 374   6                  LED_4H = LED_ON;
+ 375   6                  LED_6H = LED_OFF;
+ 376   6                  break;
+ 377   6                }
+ 378   5                case emTime_6H:
+ 379   5                // case emTime_8H:
+ 380   5                {
+ 381   6                  LED_2H = LED_OFF;
+ 382   6                  LED_4H = LED_OFF;
+ 383   6                  LED_6H = LED_ON;
+ 384   6                  break;
+ 385   6                }
+ 386   5              }
+ 387   4            }
+ 388   3            break;
+ 389   3          }
+ 390   2        }
+ 391   1        switch (mcu_get_wifi_work_state())
+ 392   1        {
+ 393   2          case SMART_CONFIG_STATE: // 0x00
+ 394   2                      // 快闪 250ms = 亮125 + 灭125（假设blink_cnt是1ms计）
+ 395   2            if ((blink_cnt & 0x7F) < 0x40)
+ 396   2            {
+ 397   3              LED_WIFI = LED_ON;
+ 398   3            }
+ 399   2            else
+ 400   2            {
+ 401   3              LED_WIFI = LED_OFF;
+ 402   3            }
+ 403   2            break;
+ 404   2          case AP_STATE: // 0x01
+ 405   2                // 慢闪 1500ms = 亮750 + 灭750
+ 406   2            if ((blink_cnt & 0x5FF) < 0x2FF)
+ 407   2            {
+ 408   3              LED_WIFI = LED_ON;
+ 409   3            }
+ 410   2            else
+ 411   2            {
+ 412   3              LED_WIFI = LED_OFF;
+ 413   3            }
+ 414   2            break;
+ 415   2          case WIFI_CONNECTED:  // 0x03
+ 416   2          case WIFI_CONN_CLOUD: // 0x04  ← 已连云，业务解锁
+ 417   2            LED_WIFI = LED_ON;    // 常亮
+ 418   2            break;
+ 419   2          case WIFI_NOT_CONNECTED: // 0x02
+ 420   2          default:
+ 421   2            LED_WIFI = LED_OFF; // 熄
+ 422   2            break;
+ 423   2        }
+ 424   1      }
+C51 COMPILER V9.60.7.0   MAIN                                                              11/14/2026 00:42:13 PAGE 8   
+
+ 425          
+ 426          /*********************************************************************************************************
+             -************/
+ 427          
+ 428          void System_Init(void)
+ 429          {
+ 430   1        LVDCON = 0xE2; // 设置LVD复位电压为2.7V
+ 431   1      #ifdef SYSCLK_16MHZ
+ 432   1        CKDIV = 0; // 系统时钟运行16MHz
+ 433   1      #else
+                CKDIV = 1; // 系统时钟运行8MHz
+              #endif
+ 436   1        IHCFG = ReadIHCFG();
+ 437   1        TKCCFG = ReadTKCCFG();
+ 438   1      #ifdef UART1_EN
+ 439   1        Uart1_Initial(UART1_BAUTRATE);
+ 440   1      #endif
+ 441   1      #ifdef UART2_EN
+ 442   1        Uart2_Initial(UART2_BAUTRATE);
+ 443   1      #endif
+ 444   1        BT_CFG = OUTPUT;
+ 445   1        BT = BT_OFF;
+ 446   1        LED_WIFI_CFG = OUTPUT | PD_EN;
+ 447   1        LED_DY_CFG   = OUTPUT | PD_EN;
+ 448   1        LED_2H_CFG   = OUTPUT | PD_EN;
+ 449   1        LED_4H_CFG   = OUTPUT | PD_EN;
+ 450   1        LED_6H_CFG   = OUTPUT | PD_EN;
+ 451   1      
+ 452   1      }
+ 453          
+ 454          void main(void)
+ 455          {
+ 456   1        System_Init();
+ 457   1        EA = 1; // 开全局中断
+ 458   1      
+ 459   1      #ifdef PRINT_EN
+ 460   1        uart_printf("Timer0 Mode1 Demo Code\n");
+ 461   1      #endif
+ 462   1      
+ 463   1        Timer0_Init();
+ 464   1        Timer1_Init();
+ 465   1        INT4_Init();
+ 466   1        key_init();
+ 467   1        wifi_protocol_init();
+ 468   1        // LED_WIFI = 1;
+ 469   1        while (detectionDone == 0);
+ 470   1        // LED_WIFI = 0;
+ 471   1        // delay_ms(200);
+ 472   1        // duty_cycle_from_wifi = 0;
+ 473   1        // emLightState = emLightState_Off;
+ 474   1      
+ 475   1        // while(1)
+ 476   1        // {
+ 477   1        //  period = (unsigned int)((duty_cycle_from_wifi * (max_delay_ms)) / DUTY_MAX * 100);
+ 478   1        //  /* 处理短按：切换Smart/AP配网模式 */
+ 479   1        //     if (g_key.short_press_flag) {
+ 480   1        //         g_key.short_press_flag = 0;  // 消费标志，清零
+ 481   1        //    LED_WIFI  = !LED_WIFI;
+ 482   1        //    duty_cycle_from_wifi += 10;
+ 483   1        //    if(duty_cycle_from_wifi >= 70)
+ 484   1        //    {
+ 485   1        //      duty_cycle_from_wifi = 0;
+C51 COMPILER V9.60.7.0   MAIN                                                              11/14/2026 00:42:13 PAGE 9   
+
+ 486   1        //    }
+ 487   1        //         key_short_press_handler();   // 你之前写的切模式函数
+ 488   1        //     }
+ 489   1      
+ 490   1        //     /* 处理长按：清网+重启模组 */
+ 491   1        //     if (g_key.long_press_flag) {
+ 492   1        //         g_key.long_press_flag = 0;   // 消费标志，清零
+ 493   1        //    emLightState = !emLightState;
+ 494   1        //         key_long_press_handler();    // 你之前写的清网函数
+ 495   1        //     }
+ 496   1        // }
+ 497   1        while (1)
+ 498   1        {
+ 499   2          wifi_uart_service();
+ 500   2          key_handler();
+ 501   2          duty_cycle_in_mcu = get_mcu_duty_by_power(calc_target_power(duty_cycle_from_wifi));
+ 502   2          period = (unsigned int)((duty_cycle_in_mcu * (max_delay_ms)) / DUTY_MAX * 100);
+ 503   2      
+ 504   2          // 自动关灯检测
+ 505   2          if (emLightState == emLightState_On && emTimeState == emTimeState_On)
+ 506   2          {
+ 507   3            if (sys_time >= turn_off_time ||
+ 508   3              (turn_off_time > DAY_SECONDS && sys_time >= (turn_off_time % DAY_SECONDS) && day_flag))
+ 509   3            {
+ 510   4              emLightState = emLightState_Off;
+ 511   4              emTimeState = emTimeState_Off;
+ 512   4              turn_on_time = 0;
+ 513   4              turn_off_time = 0;
+ 514   4              if (day_flag == 1)
+ 515   4              {
+ 516   5                day_flag = 0;
+ 517   5              }
+ 518   4              all_data_update();
+ 519   4            }
+ 520   3          }
+ 521   2      
+ 522   2        }
+ 523   1      }
+ 524          #endif
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1636    ----
+   CONSTANT SIZE    =     24    ----
+   XDATA SIZE       =     73    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      7      16
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      5    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
